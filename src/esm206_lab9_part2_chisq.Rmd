@@ -1,0 +1,85 @@
+---
+title: "lab9 part 2 - chi square with lizards"
+author: "Lucas Boyd"
+date: "11/23/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(here)
+library(janitor)
+library(broom)
+
+
+```
+## read in data
+```{r}
+lizards <- read_csv(here("data", "lizards.csv"))
+```
+
+Get counts of lizards by species
+
+```{r}
+lizards %>% 
+  count(spp) %>% 
+  arrange(-n) # arrange data in decreasing order by n
+```
+
+## make a subset
+
+-  only UTST lizards
+-  Sites: IBPE, RABB, EAST
+-  tail condition is recorded (W or B)
+
+```{r}
+utst <- lizards %>% 
+  filter(spp == "UTST") %>% 
+  filter(site %in% c("IBPE", "RABB", "EAST") ) %>% 
+  filter(tail %in% c("B", "W"))
+  
+```
+
+## Find counts and proportions of lizards with broken or whole tails at each site
+```{r}
+utst %>% 
+  count(site, tail)
+```
+Use tabyl() to make a nice clean table of data for chisquare test.
+```{r}
+tail_counts <- utst %>% 
+  tabyl(site, tail)
+
+# turn those counts into percentages (default is calculated by rows)
+tail_proportions <- tail_counts %>% 
+  adorn_percentages() %>% 
+  adorn_pct_formatting(digits = 2)  %>% # make the percentages a nice little two digits
+  adorn_ns() # add the actual counts to the table
+```
+## Convert to a contingency table
+
+Convert columns into row names using `column_to_rowname()`
+```{r}
+lizard_ct <- tail_counts %>% 
+  column_to_rownames(var = "site") # turn the site column into a row name
+```
+
+## chi-square
+Are tail breakage and site independent?
+```{r}
+lizard_x2 <- chisq.test(lizard_ct)
+lizard_x2
+
+lizard_tidy <- lizard_x2 %>% # make a nice table of the chisq output to make it easier for inline referencing
+  tidy(lizard_x2)
+
+```
+Reject the null hypothesis of independence. 
+There is a significant association between site and tail breakage. 
+
+The is a significant association between site and lizard tail breakage ($\chi$^2^(`r (lizard_tidy$parameter)`) = `r round(lizard_tidy$statistic, 2)`, *p* = `r round(lizard_tidy$p.value, 3)`).
+
+
+
+
